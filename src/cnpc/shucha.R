@@ -2,8 +2,8 @@ library(XLConnect)
 library(reshape2)
 library(zoo)
 
-datapath<-"data/gx1/"
-filenames<-list.files(path=datapath, pattern=".xls")
+datapath<-"../../data/cnpc/shucha/"
+filenames<-list.files(path=paste(datapath, "gx1/", sep=""), pattern=".xls")
 pVendorIn<-data.frame() #油田输出
 pStorageIn<-data.frame() #储气库进气量，应计入当日消耗
 pVendorOut<-data.frame() #客户消耗
@@ -14,7 +14,7 @@ pPipeStore<-data.frame() #管存Vc[i]=pPipeStore[i], Vm[i]=pPipeStore[i+1]
 for(filename in filenames) {
   d<-as.Date(ISOdate(substr(filename, 1, 4), substr(filename, 5,6), substr(filename, 7,8)))
   #read xls file
-  xls <- loadWorkbook(paste(datapath, filename, sep=""),create=FALSE)
+  xls <- loadWorkbook(paste(datapath, "gx1/", filename, sep=""),create=FALSE)
   
   #income, vendor
   s<-readWorksheet(xls, "进气", region="B1:E3", header=TRUE)
@@ -22,6 +22,8 @@ for(filename in filenames) {
   s$linename<-na.locf(s$linename)
   s$date<-rep(d, form=1, to=length(s$linename))
   pVendorIn<-rbind(pVendorIn, s)
+  
+  linename<-s$linename[1]
   
   #storage
   st<-readWorksheet(xls, "进气", region="B5:E6", header=TRUE)
@@ -77,12 +79,12 @@ pSelfConsume$daily_consume<-as.numeric(pSelfConsume$daily_consume)
 pPipeStore$daily_pipestore<-as.numeric(pPipeStore$daily_pipestore)
 
 
-write.csv(pVendorIn, "data/gx1_mid/油田输出.csv")
-write.csv(pStorageIn, "data/gx1_mid/储气库进气量.csv")
-write.csv(pVendorOut, "data/gx1_mid/客户消耗.csv")
-write.csv(pStorageOut, "data/gx1_mid/储气库出气量.csv")
-write.csv(pSelfConsume, "data/gx1_mid/自身消耗.csv")
-write.csv(pPipeStore, "data/gx1_mid/管存.csv")
+write.csv(pVendorIn, paste(datapath, "gx1_mid/油田输出.csv", sep=""))
+write.csv(pStorageIn, paste(datapath, "gx1_mid/储气库进气量.csv", sep=""))
+write.csv(pVendorOut, paste(datapath, "gx1_mid/客户消耗.csv", sep=""))
+write.csv(pStorageOut, paste(datapath, "gx1_mid/储气库出气量.csv", sep=""))
+write.csv(pSelfConsume, paste(datapath, "gx1_mid/自身消耗.csv", sep=""))
+write.csv(pPipeStore, paste(datapath, "gx1_mid/管存.csv", sep=""))
 
 #---------
 pVendorOut<-aggregate(client_use~date+linename+station, data=pVendorOut, FUN=sum)
@@ -94,9 +96,9 @@ r<-merge(r, pStorageOut, by=c("date", "linename", "station"), all=TRUE)
 r<-merge(r, pSelfConsume, by=c("date", "linename", "station"), all=TRUE)
 r[is.na(r)]<-0
 
-write.csv(r, "data/r.csv")
+write.csv(r, paste(datapath, "r.csv", sep=""))
 
 rg<-aggregate(.~date+linename, data=subset(r, select=c("vendor_income","storage_output","storage_save","client_use","daily_consume","date","linename")), FUN=sum)
 rg<-merge(rg, pPipeStore, by=c("date", "linename"), all=TRUE)
-write.csv(rg, "data/rg.csv")
+write.csv(rg, paste(datapath, "rg.csv", sep=""))
 
