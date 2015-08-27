@@ -18,10 +18,10 @@ getYMD<-function(dt) {
 
 #---------------2012 to 2015 with 2011--------
 setCurrentProject("SANY")
-custFilter<-read.csv("data/0708/cust_filter_0708.csv", header=TRUE)
-whSubCom<-read.csv("data/0708/wh_subCom_0708.csv", header=TRUE)
-partGroup<-read.csv("data/0708/part_group_0708.csv", header=TRUE)
-sales<-read.csv("data/0708/sales_0709.csv", header=TRUE)
+custFilter<-read.csv("../../data/sany/0708/cust_filter_0708.csv", header=TRUE)
+whSubCom<-read.csv("../../data/sany/0708/wh_subCom_0708.csv", header=TRUE)
+partGroup<-read.csv("../../data/sany/0708/part_group_0708.csv", header=TRUE)
+sales<-read.csv("../../data/sany/0708/sales_0709.csv", header=TRUE)
 
 #filter sales
 subSales<-subset(sales, !(cust_name %in% custFilter$subCom))
@@ -35,7 +35,7 @@ for(whName in whSubCom$wh_name){
   subSales$province[subSales$wh_name==whName]<-as.character(whSubCom$Province[whSubCom$wh_name==whName])
 }
 #-----------------------2011 data-------------
-oldSales<-read.csv("data/0708/xiaoshoudingdan.csv", header=TRUE)
+oldSales<-read.csv("../../data/sany/0708/xiaoshoudingdan.csv", header=TRUE)
 colnames(oldSales)<-c("ddlx","subCom","cust_name","part_no","order_qty", "closeDate", 
                       "openDate", "year", "month", "decad", "a", "b")
 
@@ -64,7 +64,7 @@ for(partNo in partGroup$part_no) {
   sumSale$part_groupName[sumSale$part_no==partNo]<-as.character(partGroup$note[partGroup$part_no==partNo])
   sumSale$part_group[sumSale$part_no==partNo]<-as.character(partGroup$group[partGroup$part_no==partNo])
 }
-#write.csv(sumSale, "data/mid/sumSales.csv")
+#write.csv(sumSale, "../../data/sany/mid/sumSales.csv")
 #--remove data before 2011-9 and after 2015-6
 sumSale<-subset(sumSale, !(year==2011 & month<9))
 sumSale<-subset(sumSale, !(year==2015 & month>6))
@@ -73,7 +73,7 @@ sumGroupSale<-aggregate(order_qty~part_group+decad+month+year+province, data=sum
 for(group in partGroup$group) {
   sumGroupSale$part_groupName[sumGroupSale$part_group==group]<-as.character(partGroup$note[partGroup$group==group][1])
 }
-#write.csv(sumGroupSale, "data/mid/sumGroupSale.csv")
+#write.csv(sumGroupSale, "../../data/sany/mid/sumGroupSale.csv")
 #--------------generate seq---------------------
 dcount<-46*3
 seq<-seq(from=1, to=dcount, by=1)
@@ -101,7 +101,7 @@ seq<-cbind(seq, decad, month, year)
 #})
 #seq<-1:length(seqSales[,1])
 #seqSales<-cbind(seq, seqSales)
-#write.csv(seqSales, "data/mid/seqSales.csv")
+#write.csv(seqSales, "../../data/sany/mid/seqSales.csv")
 
 #--------group------------
 seqGroupSale<-ddply(sumGroupS ale, .(part_group, province), function(d){
@@ -113,4 +113,4 @@ seqGroupSale<-ddply(sumGroupS ale, .(part_group, province), function(d){
   partSale
 })
 seqGroupSale$date_YMD<-as.Date(ISOdate(seqGroupSale$year, seqGroupSale$month, seqGroupSale$decad*8))
-write.csv(seqGroupSale, "data/mid/seqGroupSale.csv")
+write.csv(seqGroupSale, "../../data/sany/mid/seqGroupSale.csv")

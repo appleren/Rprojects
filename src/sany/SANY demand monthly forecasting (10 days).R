@@ -7,9 +7,6 @@ library(EMD)
 library(rpart)
 library(Rssa)
 library(plyr)
-if(!exists("setCurrentProject")){
-  source("setCurrentProject.R")
-}
 
 #==========================================================
 #     Evaluation
@@ -37,10 +34,10 @@ pred_evaluation<-function(y_original,pred_comb, method="ts", fcst_num, id, title
   Rsquare1<-calRSquare(pred_error[-(length(pred_error)-fcst_num):0], 
                        y_original[-(length(y_original)-fcst_num):0])
   
-  plot(1:length(y_original),y_original,type="o", xlab="时间点", ylab="销量", sub=subtitle,
+  plot(1:length(y_original),y_original,type="l", xlab="时间点", ylab="销量", sub=subtitle,
        main=paste(title,"m=",format(mae1,digits=2), ",a=",format(accuracy1,digits=2),
                   ",r=", format(Rsquare1,digits=2),
-                  ",(",methord,"):",id, "(M=",format(mae,digits=2),
+                  ",(",method,"):",id, "(M=",format(mae,digits=2),
                   ",A=",format(accuracy,digits=2),
                   ",R=", format(Rsquare,digits=2),")",sep=""))
   lines(1:length(y_original),pred_comb,col="red")
@@ -239,14 +236,18 @@ scoring_SSA<-function(predModelList_SSA, fcstLength){
   return(list(predValue=pred))   
 }
 
-training_STL_RPART<-function(trainingData, companyID="", freq){
+training_STL_RPART<-function(trainingData, companyID="", freq, wholeData){
   y<-trainingData    #just because of legacy naming
   y_ts<-ts(y$order_qty,frequency=freq)
   predModel_trend_stl<-stlm(y_ts,s.window=7)
   remainder<-predModel_trend_stl$stl$time.series[,"remainder"] 
-  remainder_ts<-ts(cbind(order_qty=remainder, year=y$year, month=y$month, decad=y$decad),frequency=freq)
-  predModel_remain_rpart<-rpart(order_qty~year+month+decad, remainder_ts, method="anova")
-  
+  if(length(y$decad)>0){
+    remainder_ts<-ts(cbind(order_qty=remainder, year=y$year, month=y$month, decad=y$decad),frequency=freq)
+    predModel_remain_rpart<-rpart(order_qty~year+month+decad, remainder_ts, method="anova")
+  } else{
+    remainder_ts<-ts(cbind(order_qty=remainder, year=y$year, month=y$month),frequency=freq)
+    predModel_remain_rpart<-rpart(order_qty~year+month, remainder_ts, method="anova")
+  }
   return(list(trend=predModel_trend_stl,remain=predModel_remain_rpart, trainData=remainder_ts))  
 }
 
@@ -269,8 +270,8 @@ scoring_STL_RPART<-function(predModelList_STL, fcstLength, outType="All", wholeD
   #prediction result over the testing dataset
   #predValue_stl_rpart<-forecast(predModel_trend_stl,h=fcstLength)$mean+forecast(predModel_remain_rpart,h=fcstLength)$mean
   predModel_test_trend<-predict(predModel_trend_stl, h=fcstLength)$mean
-  predmodel_test_data<-wholeData[(fcstLength-length(wholeData[,1])):0]
-  predValue_stl_rpart<-predict(predModel_trend_stl, h=fcstLength)$mean+predict(predModel_remain_rpart,newdata=predmodel_test_data-predModel_test_trend )
+  predmodel_test_data<-wholeData[(fcstLength-length(wholeData[,1])):0,]
+  predValue_stl_rpart<-predModel_test_trend+predict(predModel_remain_rpart,newdata=predmodel_test_data )
   
   if (outType=="Test"){    
     return(list(predValue=pmax(0,round(predValue_stl_rpart))))    
@@ -304,6 +305,7 @@ demand_forecast<-function(dp) {
   accLine<-dp$accLine
   file_metrics<-dp$file_metrics
   pdfFile<-dp$pdfFile
+  rollForecast<-dp$rollForecast
   
   testing_result<-data.frame()
   fcst_metrics<-data.frame()
@@ -317,51 +319,46 @@ demand_forecast<-function(dp) {
     # forecasting horizon 
     fcstNum=round(testH/fcstLength)
     y_original<-y
-    
-    if(rollForecast) {
-      # currenly Year 2015 data is used for testing, other data for training
-      for (testRound in 1:fcstNum){    
-        y_test<-y_original[(trainH+fcstLength*(testRound-1)+1):(trainH+fcstLength*testRound),]
-        y<-y_original[1:(trainH+fcstLength*(testRound-1)),]
-        y_whole<-y_original[1:(trainH+fcstLength*testRound),]
-        
-        print(paste("now train over 1:", dim(y)[1],", test over",dim(y_test)[1]," cases",sep=""))
-        
-        # =====================================================
-        #              Training
-        # =====================================================
-        
-        # Method 3: STL directly
-        predModelList_STL<-training_STL_ARIMA(y,id,freq)
-        #       predModelList_STL2<-training_STL_ARIMA2(y,id,freq,years=train_year)
-        
-        # Method 4: SSA method 
-        predModelList_SSA<-training_SSA(y,id,freq)
-        
-        # =====================================================
-        #              Testing
-        # =====================================================
-        pred_comb_stl_arima<-scoring_STL_ARIMA(predModelList_STL, fcstLength)
-        #       pred_comb_stl_arima2<-scoring_STL_ARIMA2(predModelList_STL, fcstLength, testRound=testRound, years=test_year-trainH, weights=c(1, 1, 1))
-        
-        predResult<-pred_comb_stl_arima[[1]]
-        #       predResult<-rbind(predResult,pred_comb_stl_arima2[[1]])
-        
-        pred_comb_SSA<-scoring_SSA(predModelList_SSA,fcstLength)
-        predResult<-rbind(predResult,pred_comb_SSA[[1]])
-        
-        if (testRound==1){
-          predResult_Final<-predResult     
-        } else{
-          predResult_Final<-cbind(predResult_Final,predResult[,(trainH+fcstLength*(testRound-1)+1):(trainH+fcstLength*testRound)])     
-        } 
-        
-      }
-    } else {
+    # currenly Year 2015 data is used for testing, other data for training
+    for (testRound in 1:fcstNum){    
+      y_test<-y_original[(trainH+fcstLength*(testRound-1)+1):(trainH+fcstLength*testRound),]
+      y<-y_original[1:(trainH+fcstLength*(testRound-1)),]
+      y_whole<-y_original[1:(trainH+fcstLength*testRound),]
+      
+      print(paste("now train over 1:", dim(y)[1],", test over",dim(y_test)[1]," cases",sep=""))
+      
+      # =====================================================
+      #              Training
+      # =====================================================
+      
+      # Method 3: STL directly
+      predModelList_STL<-training_STL_ARIMA(y,id,freq)
+      predModelList_STL2<-training_STL_RPART(y,id,freq)
+      
+      # Method 4: SSA method 
+      predModelList_SSA<-training_SSA(y,id,freq)
+      
+      # =====================================================
+      #              Testing
+      # =====================================================
+      pred_comb_stl_arima<-scoring_STL_ARIMA(predModelList_STL, fcstLength)
+      pred_comb_stl_arima2<-scoring_STL_RPART(predModelList_STL2, fcstLength, wholeData=y_original)
+      
+      predResult<-pred_comb_stl_arima[[1]]
+      predResult<-rbind(predResult,pred_comb_stl_arima2[[1]])
+      
+      pred_comb_SSA<-scoring_SSA(predModelList_SSA,fcstLength)
+      predResult<-rbind(predResult,pred_comb_SSA[[1]])
+      
+      if (testRound==1){
+        predResult_Final<-predResult     
+      } else{
+        predResult_Final<-cbind(predResult_Final,predResult[,(trainH+fcstLength*(testRound-1)+1):(trainH+fcstLength*testRound)])     
+      } 
       
     }
     
-    methodVec<-c("STL+ARIMA", "SSA")
+    methodVec<-c("STL+ARIMA", "RPART", "SSA")
     
     par(mfrow=c(length(methodVec),1))
     n<-length(methodVec)
@@ -440,7 +437,8 @@ getDataAndParams<-function(x, toPDF, cutYear, calMonth, workDir,
     x<-setSeq(x)
   }
   if(!calMonth){
-    r$fcstLength<-3
+    if(rollForecast) r$fcstLength<-3
+    else r$fcstLength<-15
     r$accLine<-5
     if(cutYear) {
       r$freq<-33
@@ -452,11 +450,11 @@ getDataAndParams<-function(x, toPDF, cutYear, calMonth, workDir,
       r$file_metrics<-paste(workDir,"fcst_decad Metrics.csv",sep="")
       r$pdfFile<-paste(workDir,"fcst_decad.pdf",sep="")
     }
-  }
-  else {
+  } else {
     x<-aggregate(order_qty~month+year+province, x, sum)
     x<-setSeq(x)
-    r$fcstLength<-1
+    if(rollForecast) r$fcstLength<-1
+    else r$fcstLength<-5
     r$accLine<-15
     if(cutYear) {
       r$freq<-11
@@ -469,6 +467,7 @@ getDataAndParams<-function(x, toPDF, cutYear, calMonth, workDir,
       r$pdfFile<-paste(workDir,"fcst_month.pdf",sep="")
     }
   }
+  
   r$data<-x
   r$provinces<-provinces
   if(length(provinces)==0) r$provinces<-unique(x$province)
@@ -486,7 +485,7 @@ getDataAndParams<-function(x, toPDF, cutYear, calMonth, workDir,
 #########
 # grp: Use this groupID to run against one or more group.
 #      If grp is set to NULL, unique(gs$part_group) will be used
-sanyDemandForecast<-function(toPDF, cutYear, calMonth, workDir=getwd(), grp=NULL, remove2011, provinces=NULL) {
+sanyDemandForecast<-function(toPDF, cutYear, calMonth, workDir, grp=NULL, remove2011, provinces=NULL) {
   gs<-read.csv(paste(workDir, "/seqGroupSale.csv",sep=""))
   if(length(grp)>0) 
     groups<-grp
@@ -498,18 +497,17 @@ sanyDemandForecast<-function(toPDF, cutYear, calMonth, workDir=getwd(), grp=NULL
     if(!dir.exists(path))
       dir.create(path, mode = "0777")
     decadSale<-subset(gs,part_group==group)
-    dp<-getDataAndParams(decadSale, toPDF=toPDF, cutYear=cutYear, calMonth=calMonth, workDir=path, provinces=provinces, subtitle=groupName, remove2011=remove2011)
+    dp<-getDataAndParams(decadSale, toPDF=toPDF, cutYear=cutYear, calMonth=calMonth, workDir=path, provinces=provinces, subtitle=groupName, remove2011=remove2011, rollForecast=FALSE)
     
     demand_forecast(dp)
   }
 }
 
 #----run------------
-setCurrentProject("SANY")
 workDir<-getwd()
-path<-paste(workDir,"/data/mid",sep="")
+path<-paste(workDir,"/../../data/sany/mid",sep="")
 
 # sanyDemandForecast(toPDF=FALSE, cutYear=TRUE, calMonth=TRUE, workDir=path, remove2011=TRUE, grp=c(4,10), provinces="北京")
 
-sanyDemandForecast(toPDF=FALSE, cutYear=TRUE, calMonth=TRUE, workDir=path, remove2011=TRUE, grp=c(4,10))
+sanyDemandForecast(toPDF=FALSE, cutYear=TRUE, calMonth=TRUE, workDir=path, remove2011=TRUE, grp=4, provinces="北京")
 
