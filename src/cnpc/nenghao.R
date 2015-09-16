@@ -2,9 +2,8 @@ library(XLConnect)
 library(reshape2)
 library(zoo)
 library(plyr)
-library(nnet)
-library(rpart)
 
+#read data from excel files
 datapath<-"../../data/cnpc/nenghao/"
 filenames<-list.files(path=paste(datapath, "cz1/", sep=""), pattern=".xls")
 stationRunningParam<-data.frame()
@@ -98,14 +97,40 @@ colnames(stationRunningParam)<-c("cz_outtemp", "cz_outP", "cz_earthtemp", "cz_in
 colnames(clientOutput)<-c("fs_qty", "fs_temp", "fs_p", "client_name", "date")
 colnames(compressorParam)<-c("comp_no", "comp_outtemp", "comp_outP", "comp_intemp", "comp_inP", "comp_time", "comp_speed", "date")
 colnames(consumption)<-c("other", "no1", "no2", "no3", "no4", "no5", "all", "all_p", "date")
-colnames(gasCondition)<-c("C2H6", "C3H8", "C6+", "CH4", "CO2", "H2S", "i-C4H10", "i-C5H12", "n-C4H10", "n-C5H12", "N2", "low_heat", "high_heat", "water_dew_point", "hydrocarbon_dew_point", "date")
+colnames(gasCondition)<-c("C2H6", "C3H8", "C6", "CH4", "CO2", "H2S", "iC4H10", "iC5H12", "nC4H10", "nC5H12", "N2", "low_heat", "high_heat", "water_dew_point", "hydrocarbon_dew_point", "date")
 
+write.csv(gasCondition, paste(datapath, "cz1_mid/气质分析报告_tmp.csv", sep=""), row.names=FALSE)
+gasCondition<-read.csv(paste(datapath, "cz1_mid/气质分析报告_tmp.csv", sep=""))
+
+tmp<-data.frame(CH4=rep(0, 366),C2H4=rep(0, 366),C2H6=rep(0, 366),
+                C3H6=rep(0, 366),C3H8=rep(0, 366),
+                iC4H10=rep(0, 366),nC4H10=rep(0, 366),
+                iC5H12=rep(0, 366),
+                nC5H12=rep(0, 366),C6H14=rep(0, 366),
+                C7H16=rep(0, 366),C8H18=rep(0, 366),
+                C9H20=rep(0, 366),C10H22=rep(0, 366),
+                C11H24=rep(0, 366),N2=rep(0, 366),
+                CO2=rep(0, 366),H2S=rep(0, 366))
+tmp$date<-gasCondition$date
+tmp[,which(colnames(tmp)%in%colnames(gasCondition))]<-gasCondition[, colnames(tmp)[which(colnames(tmp)%in%colnames(gasCondition))]]
+
+tmp$high_heat<-gasCondition$high_heat
+tmp$water_dew_point<-gasCondition$water_dew_point
+
+gasCondition<-tmp
+gasCondition$date<-as.Date(gasCondition$date)
+
+#气体组分,先后顺序为CH4,C2H4,C2H6,C3H6,C3H8,iC4H10,nC4H10,iC5H12,nC5H12,C6H14,C7H16,C8H18,C9H20,C10H22,C11H24,N2,CO2,H2S
+
+gasCondition<-merge(gasCondition, stationRunningParam, by="date", all=TRUE)
 
 write.csv(stationRunningParam, paste(datapath, "cz1_mid/场站运行参数.csv", sep=""))
 write.csv(clientOutput, paste(datapath, "cz1_mid/客户分输.csv", sep=""))
 write.csv(compressorParam, paste(datapath, "cz1_mid/压缩机运行参数.csv", sep=""))
 write.csv(consumption, paste(datapath, "cz1_mid/能耗.csv", sep=""))
 write.csv(gasCondition, paste(datapath, "cz1_mid/气质分析报告.csv", sep=""))
+
+
 
 #----------------------Read data-------------------
 consumption<-read.csv(paste(datapath, "cz1_mid/能耗.csv", sep=""))
@@ -114,64 +139,86 @@ clientOutput<-read.csv(paste(datapath, "cz1_mid/客户分输.csv", sep=""))
 compressorParam<-read.csv(paste(datapath, "cz1_mid/压缩机运行参数.csv", sep=""))
 gasCondition<-read.csv(paste(datapath, "cz1_mid/气质分析报告.csv", sep=""))
 
+# 总能耗分析  
+# 
+# 压比  进出站气压比
+# 压差  出进站气压差
+# 工作量	转速乘以时间乘以压比
+# 进站温度	进站温度
+# 出站温度	出站温度
+# 地温      地温
+# 分输量	总分输量
+# 气质物性	根据气质报告计算BWRS
+# 
+# 总压缩机能耗	五个压缩机能耗和
+# 总耗气	总耗气
 
+
+#总压缩机能耗 allCons
 consumption$allCons<-with(consumption, no1+no2+no3+no4+no5)
+# 分输量  总分输量 fs_qty
+clientOutput<-aggregate(fs_qty~date, data=clientOutput, FUN=sum)
+#进出站压比 p_percent
+stationRunningParam<-subset(stationRunningParam, cz_outP!=0)
+stationRunningParam$cz_inP[which(stationRunningParam$cz_inP==0)]<-0.0001
+stationRunningParam$p_percent<-stationRunningParam$cz_inP/stationRunningParam$cz_outP
+#进出站压比 p_diff
+stationRunningParam$p_diff<-stationRunningParam$cz_outP-stationRunningParam$cz_inP
+# 工作量  转速乘以时间乘以压比（压比稍后再算） workload
+compressorParam$workload<-compressorParam$comp_speed*compressorParam$comp_time
+compressorParam1<-aggregate(workload~date, data=compressorParam, FUN=sum)
 
-clientOutput<-aggregate(.~date, data=subset(clientOutput, select=(c("date", "fs_temp", "fs_p"))), FUN=mean)
-# d1<-aggregate(.~date, 
-#               data=subset(compressorParam,
-#                           select=c("date", "comp_outtemp", 
-#                                    "comp_outP", "comp_intemp", 
-#                                    "comp_inP", "comp_speed")),
-#               FUN=mean)
-# d2<-aggregate(.~date,data=subset(compressorParam, select=c("date", "comp_time")), FUN=sum)
-# compressorParam<-merge(d1, d2, by="date", all=TRUE)
+#气质
+gasCondition<-subset(gasCondition, select=c("date", "CH4", "C2H6", "high_heat", "water_dew_point"))
+
+fd<-merge(consumption, clientOutput, by="date", all=TRUE)
+fd<-merge(fd, stationRunningParam, by="date", all=TRUE)
+fd<-merge(fd, compressorParam1, by="date", all=TRUE)
+fd<-merge(fd, gasCondition, by="date", x.all=TRUE)
+fd$workload<-fd$workload*fd$p_percent
+
+fd<-subset(fd, all_p>0)
+fd<-cbind(fd, colsplit(fd$date,"-", c("year", "month", "day")))
+
+write.csv(fd, paste(datapath, "cz1_mid/fd.csv", sep=""))
+
+
+# 单位时间能耗分析  
+# 
+# 气质物性  根据气质报告计算BWRS
+# 工作量  压比乘以转速
+# 压比	进出口气压比
+# 压差  出进口气压差
+# 
+# 单位时间能耗	单机能耗除以时间
+
+compressorParam<-read.csv(paste(datapath, "cz1_mid/压缩机运行参数.csv", sep=""))
+gasCondition<-read.csv(paste(datapath, "cz1_mid/气质分析报告.csv", sep=""))
 
 compressorParam<-ddply(compressorParam, .(comp_no), function(d) {
   c<-paste("no", substr(d[1,1], 1, 1), sep="")
-  m<-merge(d, subset(consumption, select=c("date", c)), by="date", all=TRUE)
-  colnames(m)[10]<-"nh"
+  csp<-subset(consumption, select=c("date", c))
+  colnames(csp)<-c("date", "nh")
+  m<-merge(d, csp, by="date", all=TRUE)
   m
 })
-compressorParam<-subset(compressorParam, nh!=0 & comp_time!=0 & comp_speed!=0)
+#clean data
+compressorParam<-subset(compressorParam, nh!=0 & comp_time!=0 & comp_speed!=0 &comp_outP!=0 &!is.na(comp_outP))
+#单位时间能耗  单机能耗除以时间 nh1
 compressorParam$nh1<-compressorParam$nh/compressorParam$comp_time
+# 压比  进出口气压比 p_percent
+compressorParam$comp_inP[which(compressorParam$comp_inP==0)]<-0.0001
 compressorParam$p_percent<-compressorParam$comp_inP/compressorParam$comp_outP
-compressorParam$spp<-compressorParam$p_percent*compressorParam$comp_speed
+# 压差  出进口气压差 p_diff
+compressorParam$p_diff<-compressorParam$comp_outP-compressorParam$comp_inP
+# 工作量  压比乘以转速 workload
+compressorParam$workload<-compressorParam$p_percent*compressorParam$comp_speed
+
+#气质
 gasCondition<-subset(gasCondition, select=c("date", "CH4", "C2H6", "high_heat", "water_dew_point"))
-# fd<-merge(stationRunningParam, subset(consumption, select=c("allCons", "date")), by="date", all=TRUE)
-# fd<-merge(fd, clientOutput, by="date", all=TRUE)
-# fd<-merge(compressorParam, fd, by="date", x.all=TRUE)
-# fd<-merge(fd, gasCondition, by="date", all=TRUE)
-fd<-merge(compressorParam, gasCondition, by="date", x.all=TRUE)
 
-# fd<-subset(fd, select=c(-2,-3,-12))
-fd<-subset(fd, !is.na(nh)&nh1<2)
-write.csv(fd, paste(datapath, "cz1_mid/fd.csv", sep=""))
+fd1<-compressorParam
+fd1<-merge(fd1, gasCondition, by="date", x.all=TRUE)
+fd1<-subset(fd1, comp_outtemp>=comp_intemp)
+write.csv(fd1, paste(datapath, "cz1_mid/fd1.csv", sep=""))
 
-#-------------------------nnet-----------------------------------
-
-fd<-read.csv(paste(datapath, "cz1_mid/fd.csv", sep=""))
-fd1<-data.frame(scale(subset(fd, select=-which(colnames(fd) %in% c("date", "comp_time", "X", "allCons", "nh", "comp_no", "comp_outP", "comp_inP", "comp_outtemp")))))
-# fd1<-data.frame(subset(fd, select=-which(colnames(fd) %in% c("date", "comp_time", "X", "allCons", "nh", "comp_no", "comp_speed", "comp_outP", "comp_inP", "comp_outtemp"))))
-
-trainN<-(length(fd1[,1])*80)%/%100
-
-#nnet
-nn<-nnet(nh1~., fd1[1:trainN,], size=10, decay=0.001, maxit=10000, linout=F, trace=F, MaxNWts=4000, na.action=na.omit)
-p<-predict(nn, fd1[trainN+1:length(fd1[,1]),])
-p<-p*sd(fd$nh1) + mean(fd$nh1)  
-p1<-fitted(nn)
-p1<-p1*sd(fd$nh1) + mean(fd$nh1)  
-p2<-c(p1, p)
-plot(fd$nh1, type="l")
-lines(p2, col="red")
-
-#rpart
-rp<-rpart(nh1~., fd1[1:trainN,], method="anova")
-q<-predict(rp, newdata=fd1[trainN+1:length(fd1[,1]),])
-q<-q*sd(fd$nh1) + mean(fd$nh1) 
-q1<-fitted(rp)
-q1<-q1*sd(fd$nh1) + mean(fd$nh1)  
-q2<-c(q1, q)
-plot(fd$nh1, type="l")
-lines(q2, col="red")

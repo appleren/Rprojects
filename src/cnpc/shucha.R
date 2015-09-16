@@ -102,3 +102,5 @@ rg<-aggregate(.~date+linename, data=subset(r, select=c("vendor_income","storage_
 rg<-merge(rg, pPipeStore, by=c("date", "linename"), all=TRUE)
 write.csv(rg, paste(datapath, "rg.csv", sep=""))
 
+
+fdgc<-read.csv(paste(datapath, "fdgc.csv", sep=""))
