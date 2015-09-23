@@ -1,6 +1,7 @@
 library(plyr)
 library(reshape2)
 library(ggplot2)
+library(rpart)
 source("functions.R")
 
 #=========3 gdp==============
@@ -54,6 +55,27 @@ colnames(bc)<-c("date", "province", "rate", "year", "month")
 write.csv(bc, "../../data/sanyIndex/mid/bcrate.csv", row.names=FALSE)
 # write.csv(t3, "../../data/sanyIndex/mid/t3.csv", row.names=FALSE)
 
+#================kmeans===================
+t3[is.na(t3)]<-0
+cn<-t3[,1]
+t4<-as.data.frame(t(t3))
+colnames(t4)<-cn
+t4<-t4[-1,]
+t4<-cbind(province=rownames(t4), t4)
+t5<-subset(t4, select=c(-1))
+set.seed(252964)
+(kmeans <- kmeans(na.omit(t5), 5))
+a<-as.vector(kmeans$cluster)
+t4<-cbind(a, t4)
+t4<-t4[order(t4$a),]
+
+bc1<-merge(bc, subset(t4, select=c("a", "province")), by=c("province"))
+bc1$date<-as.Date(paste(bc1$year, "/", bc1$month, "/1", sep=""))
+qplot( x=date, y=rate, data=subset(bc1, a==1), colour=province, geom="line")
+qplot( x=date, y=rate, data=subset(bc1, a==2), colour=province, geom="line")
+qplot( x=date, y=rate, data=subset(bc1, a==3), colour=province, geom="line")
+qplot( x=date, y=rate, data=subset(bc1, a==4), colour=province, geom="line")
+qplot( x=date, y=rate, data=subset(bc1, a==5), colour=province, geom="line")
 #=============province rate ccf========================
 t3[is.na(t3)]<-0
 provRatet<-removeSeasonalDF(standardizationDF(t3, id.vars=c("d")), 10, id.vars=c("d"), rt=c("t"))
