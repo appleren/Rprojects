@@ -23,32 +23,7 @@ revScale2<-function(d, r){
   dd<-r*(maxv-minv)+minv
   dd
 }
-calMAE<-function(prd_err, original, line) {
-  if(line==0) {
-    prd_err<-prd_err[which(original!=0)]
-    original<-original[which(original!=0)]
-  }
-  format(mean(abs(prd_err)/pmax(line,original)),digits=2)
-}
-calAccur<-function(prd_err, original,line) {
-  format(sum(abs(prd_err)<=pmax(line,original*0.2))/length(original), digits=2)
-}
-
-calnnet<-function(wholeData, func, original, title){
-  n<-length(wholeData[,1])
-  trainLength<-(length(wholeData[,1])*80)%/%100
-  
-  nn<-nnet(func, wholeData[1:trainLength,], size=10, decay=0.0001, maxit=10000, linout=T, trace=F, MaxNWts=4000, na.action=na.omit)
-  p<-predict(nn, wholeData)
-  sdv<-sd(original)
-  meanv<-mean(original) 
-  p<-p*sdv + meanv
-  pame<-calMAE(original[(trainLength+1):n]-p[(trainLength+1):n,1], original[(trainLength+1):n], 0)
-  acc<-calAccur(original[(trainLength+1):n]-p[(trainLength+1):n,1], original[(trainLength+1):n], 0)
-  plot(original, type="l", ylim=c(min(original, p), max(fd$all_p, p)), main=paste(title, "MAPE=",pame, ", accuracy=",acc, sep=""))
-  lines(p, col="red")
-}
-
+source("accuracy.R")
 #-------------------------nnet-----------------------------------
 # 总能耗分析  
 # 
@@ -103,15 +78,35 @@ calnnet(wholeData, all_p~., fd2$all_p, "总耗气预测")
 # 
 # 单位时间能耗	单机能耗除以时间
 
-fd1<-read.csv(paste(datapath, "cz1_mid/fd1.csv", sep=""), header=TRUE)
-fd1<-subset(fd1, nh1<2, select=c("date", "nh1", "workload", "p_percent", "p_diff", "comp_intemp", "comp_inP", "comp_speed", "CH4", "water_dew_point"))
+fd<-read.csv(paste(datapath, "cz1_mid/fd1.csv", sep=""), header=TRUE)
+fd1<-subset(fd, nh1<2, select=c("date", "nh1", "workload", "p_percent", "p_diff", "comp_intemp", "comp_inP", "comp_speed", "CH4", "water_dew_point"))
 #-------------------------nnet-----------------------------------
 
 # 单位时间能耗分析
 # fd1<-fd1[1:397,]
 wholeData<-data.frame(scale(subset(fd1, select=-1)))
-
 calnnet(wholeData, nh1~., fd1$nh1, "单位时间单机能耗预测")
+
+fd1<-subset(fd, nh1<2&comp_no=="1#", select=c("date", "nh1", "workload", "p_percent", "p_diff", "comp_intemp", "comp_inP", "comp_speed", "CH4", "water_dew_point"))
+wholeData<-data.frame(scale(subset(fd1, select=-1)))
+calnnet(wholeData, nh1~., fd1$nh1, "1#单位时间单机能耗预测")
+
+fd1<-subset(fd, nh1<2&comp_no=="2#", select=c("date", "nh1", "workload", "p_percent", "p_diff", "comp_intemp", "comp_inP", "comp_speed", "CH4", "water_dew_point"))
+wholeData<-data.frame(scale(subset(fd1, select=-1)))
+calnnet(wholeData, nh1~., fd1$nh1, "2#单位时间单机能耗预测")
+
+fd1<-subset(fd, nh1<2&comp_no=="3#", select=c("date", "nh1", "workload", "p_percent", "p_diff", "comp_intemp", "comp_inP", "comp_speed", "CH4", "water_dew_point"))
+wholeData<-data.frame(scale(subset(fd1, select=-1)))
+calnnet(wholeData, nh1~., fd1$nh1, "3#单位时间单机能耗预测")
+
+fd1<-subset(fd, nh1<2&comp_no=="4#", select=c("date", "nh1", "workload", "p_percent", "p_diff", "comp_intemp", "comp_inP", "comp_speed", "CH4", "water_dew_point"))
+wholeData<-data.frame(scale(subset(fd1, select=-1)))
+calnnet(wholeData, nh1~., fd1$nh1, "4#单位时间单机能耗预测")
+
+fd1<-subset(fd, nh1<2&comp_no=="5#", select=c("date", "nh1", "workload", "p_percent", "p_diff", "comp_intemp", "comp_inP", "comp_speed", "CH4", "water_dew_point"))
+wholeData<-data.frame(scale(subset(fd1, select=-1)))
+calnnet(wholeData, nh1~., fd1$nh1, "5#单位时间单机能耗预测")
+
 
 
 # colnames(wholeData)
