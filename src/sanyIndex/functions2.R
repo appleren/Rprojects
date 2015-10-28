@@ -1,4 +1,4 @@
-removeSeasonal<-function(ts, freq, rt=c("s", "t", "e"), paint=FALSE, title="") {
+removeSeasonal<-function(ts, freq, rt=c("s", "t", "e"), paint=TRUE, title="") {
   ts<-ts(ts, frequency=freq)
   st<-stl(ts,s.window="periodic")
   if(paint) plot(st, main=title)
@@ -17,14 +17,14 @@ removeSeasonal<-function(ts, freq, rt=c("s", "t", "e"), paint=FALSE, title="") {
   r
 }
 
-removeSeasonalDF<-function(df, freq, id.vars=NULL, rt=c("s", "t", "e")){
+removeSeasonalDF<-function(df, freq, id.vars=NULL, rt=c("s", "t", "e"), title=""){
   cols<-NULL
   if(length(id.vars)>0) {
     cols<-subset(df, select=id.vars)
     df<-subset(df, select=!(colnames(df)%in%id.vars))
   }
   for(i in 1:length(df[1,])) {
-    df[,i]<-removeSeasonal(df[,i], freq, rt=rt, title=names(df)[i], paint=FALSE)
+    df[,i]<-removeSeasonal(df[,i], freq, rt=rt, title=paste(title, colnames(df)[i]))
   }
   if (length(cols)>0) df<-cbind(cols, df)
   df
@@ -72,10 +72,8 @@ calCCF<-function(gdp, gk, filename, writeFile=TRUE) {
       ccfIndex<-unlist(tmp[[4]])
       if (all(is.na(ccfVal))) next
       ccfVal[is.na(ccfVal)]<-0
-      ccfInfo1<-cbind(index1=rep(iName, times=length(ccfVal)), index2=rep(jName, times=length(ccfVal)), Lag=ccfIndex, ccfVal=ccfVal)
-      ccfInfo<-rbind(ccfInfo, ccfInfo1)
-#       k<-which(abs(ccfVal)==max(abs(ccfVal)))    
-#       ccfInfo<-rbind(ccfInfo,data.frame(Index1=iName,Index2=jName,Lag=ccfIndex[k],ccfVal=ccfVal[k]))
+      k<-which(abs(ccfVal)==max(abs(ccfVal)))    
+      ccfInfo<-rbind(ccfInfo,data.frame(Index1=iName,Index2=jName,Lag=ccfIndex[k],ccfVal=ccfVal[k]))
     } else{
       for (j in 1:length(gk[1,])){
         jName<-names(gk)[j]
@@ -85,10 +83,8 @@ calCCF<-function(gdp, gk, filename, writeFile=TRUE) {
         ccfIndex<-unlist(tmp[[4]])
         if (all(is.na(ccfVal))) next
         ccfVal[is.na(ccfVal)]<-0
-        ccfInfo1<-cbind(index1=rep(iName, times=length(ccfVal)), index2=rep(jName, times=length(ccfVal)), Lag=ccfIndex, ccfVal=ccfVal)
-        ccfInfo<-rbind(ccfInfo, ccfInfo1)
-#         k<-which(abs(ccfVal)==max(abs(ccfVal)))    
-#         ccfInfo<-rbind(ccfInfo,data.frame(Index1=iName,Index2=jName,Lag=ccfIndex[k],ccfVal=ccfVal[k]))
+        k<-which(abs(ccfVal)==max(abs(ccfVal)))    
+        ccfInfo<-rbind(ccfInfo,data.frame(Index1=iName,Index2=jName,Lag=ccfIndex[k],ccfVal=ccfVal[k]))
       }
     }
   }
