@@ -1,4 +1,4 @@
-removeSeasonal<-function(ts, freq, rt=c("s", "t", "e"), paint=FALSE, title="") {
+removeSeasonal<-function(ts, freq, rt=c("s", "t", "e"), paint=TRUE, title="") {
   ts<-ts(ts, frequency=freq)
   st<-stl(ts,s.window="periodic")
   if(paint) plot(st, main=title)
@@ -51,7 +51,7 @@ standardizationDF<-function(df, id.vars=NULL) {
 }
 
 calmcor<-function(gdp, gk, filename, writeFile=TRUE){
-  mcor<-cor(gdp,gk,use="pairwise.complete.obs")
+  mcor<-cor(gdp,gk,use="pairwise.complete.obs", method="spearman")
   tmp<-as.data.frame(mcor)
   tmp<-cbind(gdp=rownames(tmp), tmp)
   if(writeFile==TRUE) {

@@ -66,9 +66,11 @@ y<-ddply(y, .(province), function(x){
   x
 })
 y$diffShigongmianji<-c(0, diff(y$shigongmianji, 1))
+y$diffNewStartWork<-c(0, diff(y$newStartWork, 1))
 y<-subset(y,month>2)
 y<-subset(y, !(year==2009&month==10))
 
+y<-subset(y, select=-4)
 
 #===========1 operate rate===================
 # bc_or<-read.csv("../../data/sanyIndex/bc_operator_rate.csv", header=TRUE)
@@ -81,13 +83,13 @@ y<-subset(y, !(year==2009&month==10))
 # t3<-cbind(d, t2)
 
 #---------read from file- old -------------
-t3<-read.csv("../../data/sanyIndex/t3.csv", header=TRUE)
+# t3<-read.csv("../../data/sanyIndex/t3.csv", header=TRUE)
 
 #=============province rate ccf========================
-t3[is.na(t3)]<-0
-provRatet<-removeSeasonalDF(standardizationDF(t3, id.vars=c("d")), 10, id.vars=c("d"), rt=c("t"))
-cor(provRatet[, -1])
-calmcor(provRatet[, -1], provRatet[, -1], "../../data/sanyIndex/result/provRateT.csv")
+# t3[is.na(t3)]<-0
+# provRatet<-removeSeasonalDF(standardizationDF(t3, id.vars=c("d")), 10, id.vars=c("d"), rt=c("t"))
+# cor(provRatet[, -1])
+# calmcor(provRatet[, -1], provRatet[, -1], "../../data/sanyIndex/result/provRateT.csv")
 
 #=====================
 # bc<-melt(t3, id.vars=c("d"))
@@ -98,57 +100,107 @@ calmcor(provRatet[, -1], provRatet[, -1], "../../data/sanyIndex/result/provRateT
 # write.csv(t3, "data/mid/t3.csv", row.names=FALSE)
 
 
-#-----------use bc for waji and bengche---------
-waji<-read.csv("../../data/sanyIndex/waji.csv", header=TRUE)
-waji$province<-as.character(waji$province)
-for(i in 1:length(mapping[,1])){
-  m<-mapping[i,]
-  waji$province[which(waji$province==m$c3)]<-as.character(m$c2)
-}
-write.csv(waji, "../../data/sanyIndex/mid/waji.csv")
-bcnumber<-read.csv("../../data/sanyIndex/bengchenumber.csv", header=TRUE)
-bcworktime<-read.csv("../../data/sanyIndex/bengcheshigongliang.csv", header=TRUE)
-bc<-merge(bcnumber, bcworktime, by=c("province", "year", "month"))
-bc<-merge(bc, waji, by=c("province", "year", "month"))
-bc<-subset(bc, !(year==2015&month>8), select=c(1,2,3,5,7,8,10,11))
-colnames(bc)<-c("province", "year", "month", "bcAvgWorkhour", "bcAllNo",
-                "bcEffectiveNo", "wjMonthlyTime", "wjEffectveNo")
+#-----------use bc for waji and bengche--11.18-------
+# waji<-read.csv("../../data/sanyIndex/waji.csv", header=TRUE)
+# waji$province<-as.character(waji$province)
+# for(i in 1:length(mapping[,1])){
+#   m<-mapping[i,]
+#   waji$province[which(waji$province==m$c3)]<-as.character(m$c2)
+# }
+# write.csv(waji, "../../data/sanyIndex/mid/waji.csv")
+# bcnumber<-read.csv("../../data/sanyIndex/bengchenumber.csv", header=TRUE)
+# bcworktime<-read.csv("../../data/sanyIndex/bengcheshigongliang.csv", header=TRUE)
+# bc<-merge(bcnumber, bcworktime, by=c("province", "year", "month"))
+# bc<-merge(bc, waji, by=c("province", "year", "month"))
+# bc<-subset(bc, !(year==2015&month>8), select=c(1,2,3,5,7,8,10,11))
+# colnames(bc)<-c("province", "year", "month", "bcAvgWorkhour", "bcAllNo",
+#                 "bcEffectiveNo", "wjMonthlyTime", "wjEffectveNo")
 
+#===================read new bc===11.18===================
+bc<-read.csv("../../data/sanyIndex/bc.csv", header=TRUE)
+bc<-subset(bc, month>2)
 
 
 #============merge bc and gdp==============
-bc<-subset(bc, month>2)
-y<-subset(y, select=-4)
+gcCol<-c("车载泵_all_worktime", "搅拌车_all_worktime", "泵车_all_worktime",
+         "拖泵_all_worktime", "压路机_all_worktime", "挖机_all_worktime",
+         "搅拌车_avgworktime", "拖泵_avgworktime", "车载泵_avgworktime", 
+         "压路机_avgworktime", "bcAvgWorkhour", 
+         "wjMonthlyTime", "monthly_worktime", "车载泵_all_qty", "搅拌车_all_qty",
+         "拖泵_all_qty", "压路机_all_qty", "bcAllNo", "bcEffectiveNo", "wjEffectveNo")
+gdpCol<-c("zhufangmianji", "zhufangtouzi", "newStartWork", "houseindex", "shigongmianji", "diffShigongmianji", "diffNewStartWork")
 
-
-yb<-merge(bc, y, by=c("province", "year", "month"), all.x=TRUE)
+yb<-merge(y, bc, by=c("province", "year", "month"), all.x=TRUE)
 yb<-yb[order(yb[,1],yb[,2], yb[,3]),]
+# yb<-subset(yb, year<2015&(!(year==2014&month==12))&year>2012)
+yb<-subset(yb, year>2012)
 
-yb$xiangmushu[yb$month==12]<-NA
-yb$houseindex[yb$houseindex==0]<-NA
+yb<-yb[, c(gdpCol, gcCol, "year", "month", "province")]
+yb<-subset(yb, province!="西藏")
+# yb[is.na(yb)]<--1
+# which(is.na(yb))
+# length(which(yb==-1))
 
-yb<-subset(yb, year<2015&(!(year==2014&month==12)))
-# yb<-subset(yb, !(year==2015&month==7)&!(year==2015&month==8))
-
-gcCol1<-c("bcAvgWorkhour", "bcEffectiveNo", "bcAllNo", "wjEffectveNo", "wjMonthlyTime")
-gdpCol<-c("xiangmushu", "zhufangmianji", "zhufangtouzi", "newStartWork", "houseindex", "shigongmianji", "diffShigongmianji") 
+# yb$xiangmushu[yb$month==12]<-NA
+# yb$houseindex[yb$houseindex==0]<-NA
 
 # x<-subset(yb, province=="北京")
+
+#print to pdf
+# tmp<-ddply(yb, .(province), function(x) {
+#   prov<-x$province[1]
+#   ssd<-standardizationDF(x, id.vars=c("province", "year", "month"))
+#   ssd
+# })
+# 
+# write.csv(yb, "../../data/sanyIndex/mid/standarded.csv", row.names=FALSE)
+# write.csv(tmp, "../../data/sanyIndex/mid/standarded.csv", row.names=FALSE)
+# 
+# tmp<-subset(tmp, select=c(-2,-3))
+# 
+# for(i in 2:length(tmp[1,])) {
+#   pdfFile<-paste("../../data/sanyIndex/result/pdf/rcor", names(tmp)[i], ".pdf", sep="")
+#   pdf(pdfFile, family="GB1")
+#   hehe<-ddply(tmp[,c(1,i)], .(province), function(x) {
+#     pro<-x$province[1]
+#     x<-subset(x, select=-1)
+#     xxx<-removeSeasonal(x[,1], 10, rt=c("t", "e"), title=paste(pro, colnames(x)[1]), paint=TRUE)
+#     xxx
+#   })
+#   dev.off()
+# }
+
+
+
+# pdf(pdfFile, family="GB1")
 rcor<-ddply(yb, .(province), function(x) {
   prov<-x$province[1]
-  x[is.na(x)]<-0
-  x$bcSumcomAvg<-cumsum(x$bcAvgWorkhour)
-  x$bcalltime<-x$bcAvgWorkhour*x$bcAllNo
-  gcCol<-c(gcCol1, "bcSumcomAvg", "bcalltime")
+  #   x$rateCumSum<-cumsum(x$rate)
   x<-removeSeasonalDF(standardizationDF(x, id.vars=c("province", "year", "month")), 10, id.vars=c("province", "year", "month"), rt=c("t", "e"), title=prov)
-  calmcor(x[,gdpCol], x[, gcCol], paste("../../data/sanyIndex/result/", prov, "cor.csv", sep=""), FALSE)
+  calmcor(x[,gdpCol], x[, gcCol], paste("data/result/", prov, "cor.csv", sep=""), FALSE)
+  #   calmcor(x[,c("xiangmushu", "zhufangmianji", "zhufangtouzi")], x[, c("rate", "rateCumSum")], paste("data/result/", prov, "cor.csv", sep=""), FALSE)
+  #   calCCF(x[,c("xiangmushu", "zhufangmianji", "zhufangtouzi")], x[, c("rate", "rateCumSum")], paste("data/result/", prov, "ccf.csv", sep=""))
 })
 write.csv(rcor, "../../data/sanyIndex/result/rcor.csv")
 
-# rccf<-ddply(yb, .(province), function(x) {
-#   prov<-x$province[1]
-#   x[is.na(x)]<-0
-#   x<-removeSeasonalDF(standardizationDF(x, id.vars=c("province", "year", "month")), 10, id.vars=c("province", "year", "month"), rt=c("t", "e"), title=prov)
-#   calCCF(x[,gdpCol], x[, gcCol], paste("../../data/sanyIndex/result/", prov, "ccf.csv", sep=""), FALSE)
-# })
-# write.csv(rccf, "../../data/sanyIndex/result/rccf.csv")
+
+rccf<-ddply(yb, .(province), function(x) {
+  prov<-x$province[1]
+  #   x$rateCumSum<-cumsum(x$rate)
+  x<-removeSeasonalDF(standardizationDF(x, id.vars=c("province", "year", "month")), 10, id.vars=c("province", "year", "month"), rt=c("t", "e"), title=prov)
+  #   calmcor(x[,c("xiangmushu", "zhufangmianji", "zhufangtouzi")], x[, c("rate", "rateCumSum")], paste("data/result/", prov, "cor.csv", sep=""))
+  #   calCCF(x[,c("xiangmushu", "zhufangmianji", "zhufangtouzi")], x[, c("rate", "rateCumSum")], paste("data/result/", prov, "ccf.csv", sep=""), FALSE)
+  calCCF(x[,gdpCol], x[, gcCol], paste("data/result/", prov, "ccf.csv", sep=""), FALSE)
+})
+write.csv(rccf, "../../data/sanyIndex/result/rccf.csv")
+
+#======================results=====================
+result<-read.csv("../../data/sanyIndex/result/rccf.csv", header=TRUE)
+ss<-ddply(result, .(Index1, Index2), function(d){
+  t<-subset(d, abs(ccfVal)>=0.8)
+  n<-length(t$province)
+  if(n>=10)
+    t
+})
+
+write.csv(ss, "../../data/sanyIndex/result/rccfss.csv")

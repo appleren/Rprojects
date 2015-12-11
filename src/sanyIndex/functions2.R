@@ -51,7 +51,7 @@ standardizationDF<-function(df, id.vars=NULL) {
 }
 
 calmcor<-function(gdp, gk, filename, writeFile=TRUE){
-  mcor<-cor(gdp,gk,use="pairwise.complete.obs")
+  mcor<-cor(gdp,gk,use="pairwise.complete.obs", method="pearson")
   tmp<-as.data.frame(mcor)
   tmp<-cbind(gdp=rownames(tmp), tmp)
   if(writeFile==TRUE) {
