@@ -1,13 +1,19 @@
 require(tools)
+library(RMySQL)
+library(forecast)
+library(EMD)
+library(rpart)
+library(Rssa)
+library(plyr)
 options(warn=2)
 
-DmdFcstException<-setClass("DmdFcstException",
+RException<-setClass("RException",
                    slots=c(message="character"))
 
 handleError<-function(e) {
   c<-attr(e, "class")
   if(length(c)!=0 & ("error" %in% c | "simpleError" %in% c)){
-    DmdFcstException(message=conditionMessage(e))
+    RException(message=conditionMessage(e))
   }
 }
 
@@ -15,7 +21,7 @@ handleError<-function(e) {
 # e<-tryCatch(stop("this is an error"), error =handleError)
 
 
-war<-function(){
-  warning("2323")
-  warning("lalal")
-}
+detach("package:EMD", unload=TRUE)
+library(EMD)
+getOption("warn")
+options(warn=0)
