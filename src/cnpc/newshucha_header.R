@@ -25,6 +25,7 @@ pipe_store_colnames<-c("line", "init_store", "end_store", "changed")
 
 #======================陕京管道生产运行日报表-销气=======
 stops_output<-data.frame()
+stop("hahaha")
 stops_output_columns<-c("index", "line_no", "province", "stop_name",
                         "user_name", "daily_stops_output", "monthly_stops_output",
                         "year_stops_output", "all_stops_output")
