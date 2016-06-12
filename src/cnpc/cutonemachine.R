@@ -1,3 +1,5 @@
+library(plyr)
+
 cleandata<-function(rollSpeed) {
   rollSpeed$date<-as.Date(rollSpeed$time)
   rollSpeed$time<-as.POSIXct(rollSpeed$time)

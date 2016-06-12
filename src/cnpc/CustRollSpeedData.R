@@ -87,7 +87,7 @@ plotGantt<-function(dfList, startDate, endDate, startTimeCol, endTimeCol, labelC
 }
 
 #============================主调过程====================
-# datapath<-"../../data/cnpc/压缩机转速/"
+# datapath<-"../../data/cnpc/speed/压缩机转速/"
 # 
 # filenames<-list.files(path=datapath, pattern=".csv")
 # 
@@ -110,14 +110,37 @@ plotGantt<-function(dfList, startDate, endDate, startTimeCol, endTimeCol, labelC
 #   write.csv(r1000, paste0(datapath, "result/", "slice_", filename), row.names=FALSE)
 # }
 
+mainFunction<-function(datapath, index) {
+  filenames<-list.files(path=datapath, pattern=".csv")
+  
+  #clean data
+  for(filename in filenames) {
+    rollSpeed<-read.csv(paste0(datapath, filename), header=TRUE)
+    rollSpeed<-subset(rollSpeed, status==0)
+    
+    rollSpeed<-cleandata(rollSpeed)
+    write.csv(rollSpeed, paste0(datapath, "mid/", "s1_", index, filename), row.names=FALSE)
+  }
+  
+  #sum data
+  filenames<-list.files(path=paste0(datapath, "mid"), pattern=".csv")
+  for(filename in filenames) {
+    rollSpeed<-read.csv(paste0(datapath, "mid/", filename), header=TRUE)
+    rollSpeed$time<-formatDate(rollSpeed$time)
+    rollSpeed$date<-as.Date(rollSpeed$date)
+    r1000<-getSlices(rollSpeed, 1000)
+    write.csv(r1000, paste0(datapath, "result/", "slice_", index, filename), row.names=FALSE)
+  }
+}
+
 #plot
-filenames<-list.files(path=paste0(datapath, "result"), pattern=".csv")
-
-startDate<-"2015/10/01"
-endDate<-"2015/11/01"
-startTimeCol<-"startTime"
-endTimeCol<-"endTime"
-labelCol<-"tag"
-rm(plotLabel, starts, ends, priorities)
-
-plotGantt(filenames, startDate, endDate, startTimeCol, endTimeCol, labelCol, gridNo=10)
+# filenames<-list.files(path=paste0(datapath, "result"), pattern=".csv")
+# 
+# startDate<-"2015/10/01"
+# endDate<-"2015/11/01"
+# startTimeCol<-"startTime"
+# endTimeCol<-"endTime"
+# labelCol<-"tag"
+# rm(plotLabel, starts, ends, priorities)
+# 
+# plotGantt(filenames, startDate, endDate, startTimeCol, endTimeCol, labelCol, gridNo=10)
