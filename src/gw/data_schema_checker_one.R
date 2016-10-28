@@ -129,8 +129,8 @@ scadaDataReader<-function(fileName){
 testDB<-function(){
   dbFile<-"E:/GitHub/Rprojects/data/gw/gwTarGz/GW150001201306/GW15000120130611.db"
   con <- dbConnect(SQLite(), dbname=dbFile)
-#   scadaData<-dbGetQuery(con, 'select * from RUNDATA')
-#   fieldList<-dbListFields(con,"RUNDATA")
+  #   scadaData<-dbGetQuery(con, 'select * from RUNDATA')
+  #   fieldList<-dbListFields(con,"RUNDATA")
   rs<-dbSendQuery(con, "select * from RUNDATA")
   chunk<-fetch(rs, n=10)
   colInfo<-dbColumnInfo(rs, colnames(scadaData))
@@ -163,11 +163,7 @@ WindFarmStatistics<-function(inputFilesDir,outDir){
   outFiles1<-""
   
   bnames<-basename(files)
-  #  turbines<-substr(bnames,1,8)
-  bb<-strsplit(bnames, ".", fixed=TRUE)
-  cc<-data.frame(bb, stringsAsFactors=FALSE)
-  dd<-as.character(cc[1,])
-  turbines<-substr(dd, 1, nchar(dd)-8)
+  turbines<-substr(bnames,1,8)
   
   rt<-scadaDataReader(files[1])
   
@@ -176,19 +172,17 @@ WindFarmStatistics<-function(inputFilesDir,outDir){
   ft<-rt$fieldType
   
   numField<-length(result)
-  b<-strsplit(bnames[1], ".", fixed=TRUE)[[1]][1]
-  startDate<-substr(b, nchar(b)-7, nchar(b))
+  startDate<-substr(bnames[1],9,nchar(bnames[1])-9)
   endDate<-startDate
   i<-1
   schemaCount<-1
   fieldDF<-data.frame(wtid=turbines[i],startDate,endDate, numField,fieldList=paste(result,collapse=";"),fieldType=paste(ft,collapse=";"),stringsAsFactors = FALSE)
   
-  resultFileName1<-paste0(turbines[i],"_",
-                          startDate,"_",schemaCount,"_data.csv")
-  resultFileName1<-paste(outDir,"/",resultFileName1,sep="")             
-  scadaData$turbineID=rep(turbines[i], times=length(scadaData[,1]))
-  write.csv(scadaData,file=resultFileName1,row.names = FALSE)
-  outFiles<-paste(outFiles,",",resultFileName1,sep="")
+  #   resultFileName1<-paste0(turbines[i],"(",
+  #                           startDate,schemaCount,"_data.csv")
+  #   resultFileName1<-paste(outDir,"/",resultFileName1,sep="")             
+  #   write.csv(scadaData,file=resultFileName1,row.names = FALSE)
+  #   outFiles<-paste(outFiles,",",resultFileName1,sep="")
   
   if(length(files)>=2){
     for (i in 2:length(files)){
@@ -201,45 +195,58 @@ WindFarmStatistics<-function(inputFilesDir,outDir){
         newft<-newrt$fieldType
         if(paste(newresult,collapse=";")==paste(result,collapse=";")){
           #schema is the same
-          resultFileName1<-paste0(turbines[i-1],"_",
-                                  startDate,"_", schemaCount,"_data.csv")
-          resultFileName1<-paste(outDir,"/",resultFileName1,sep="")    
-          newrt$scadaData$turbineID=rep(turbines[i-1], times=length(newrt$scadaData[,1]))
-          write.table(newrt$scadaData,file=resultFileName1,row.names = FALSE, append=TRUE,col.names=FALSE, sep=",")
+          resultFileName1<-paste0(turbines[i-1],"(",
+                                  startDate,schemaCount,"_data.csv")
+          resultFileName1<-paste(outDir,"/",resultFileName1,sep="")             
+          # write.table(newrt$scadaData,file=resultFileName1,row.names = FALSE, append=TRUE,col.names=FALSE)
+          scadaData<-rbind(scadaData, newrt$scadaData)
+          
           outFiles<-paste(outFiles,",",resultFileName1,sep="")
-#           scadaData<-rbind(scadaData, newrt$scadaData)
-          b<-strsplit(bnames[i], ".", fixed=TRUE)[[1]][1]
-          endDate<-substr(b, nchar(b)-7, nchar(b))
+          endDate<-substr(bnames[i],9,nchar(bnames[1])-9)
         }else{
           #schema is not the same
           
           fieldDF[dim(fieldDF)[1],]$endDate<-endDate
-          b<-strsplit(bnames[i], ".", fixed=TRUE)[[1]][1]
-          startDate<-substr(b, nchar(b)-7, nchar(b))
+          startDate<-substr(bnames[i],9,nchar(bnames[1])-9)
           endDate<-startDate
           result<-newresult
           ft<-newft
           numField<-length(result)
           fieldDF<-rbind(fieldDF,data.frame(wtid=turbines[i],startDate,endDate,numField,fieldList=paste(result,collapse=";"),fieldType=paste(ft,collapse=";"),stringsAsFactors = FALSE))
           
-          
+          #xinlu
           schemaCount<-schemaCount+1
-          resultFileName1<-paste0(turbines[i-1],"_",
-                                  startDate,"_", schemaCount,"_data.csv")
-          resultFileName1<-paste(outDir,"/",resultFileName1,sep="")   
-          newrt$scadaData$turbineID=rep(turbines[i-1], times=length(newrt$scadaData[,1]))
-          write.csv(newrt$scadaData,file=resultFileName1,row.names = FALSE)
+          resultFileName1<-paste0(turbines[i-1],"(",
+                                  startDate,schemaCount,"_data.csv")
+          resultFileName1<-paste(outDir,"/",resultFileName1,sep="")             
+          write.csv(scadaData,file=resultFileName1,row.names = FALSE)
           outFiles<-paste(outFiles,",",resultFileName1,sep="")
+          
+          
+          # schemaCount<-schemaCount+1
+          #           resultFileName1<-paste0(turbines[i-1],"(",
+          #                                   startDate,schemaCount,"_data.csv")
+          #           resultFileName1<-paste(outDir,"/",resultFileName1,sep="")   
+          #           write.csv(newrt$scadaData,file=resultFileName1,row.names = FALSE)
+          #           outFiles<-paste(outFiles,",",resultFileName1,sep="")
+          scadaData<-newrt$scadaData
         }
       }else{
-        b<-strsplit(bnames[i-1], ".", fixed=TRUE)[[1]][1]
-        ed<-substr(b, nchar(b)-7, nchar(b))
-        resultFileName<-paste0(turbines[i-1],"_",
+        resultFileName<-paste0(turbines[i-1],"(",
                                startDate,"-",
-                               ed,".csv")
+                               substr(bnames[i-1],9,nchar(bnames[i-1])-9),").csv")
         resultFileName<-paste(outDir,"/",resultFileName,sep="")					   
         fieldDF[dim(fieldDF)[1],]$endDate<-endDate
         write.csv(fieldDF,file=resultFileName)
+        outFiles<-paste(outFiles,",",resultFileName,sep="")
+        
+        #xinlu
+        schemaCount<-schemaCount+1
+        resultFileName1<-paste0(turbines[i-1],"(",
+                                startDate,schemaCount,"_data.csv")
+        resultFileName1<-paste(outDir,"/",resultFileName1,sep="")             
+        write.csv(scadaData,file=resultFileName1,row.names = FALSE)
+        outFiles<-paste(outFiles,",",resultFileName1,sep="")
         
         rt<-scadaDataReader(files[i])
         
@@ -248,19 +255,19 @@ WindFarmStatistics<-function(inputFilesDir,outDir){
         ft<-rt$fieldType
         
         numField<-length(result)
-        b<-strsplit(bnames[i], ".", fixed=TRUE)[[1]][1]
-        startDate<-substr(b, nchar(b)-7, nchar(b))
+        startDate<-substr(bnames[i],9,nchar(bnames[i])-9)
         endDate<-startDate
         fieldDF<-data.frame(wtid=turbines[i],startDate,endDate,numField,fieldList=paste(result,collapse=";"),fieldType=paste(ft,collapse=";"),stringsAsFactors = FALSE)
         
-        schemaCount<-schemaCount+1
-        resultFileName1<-paste0(turbines[i],"_",
-                                startDate,"_", schemaCount,"_data.csv")
-        resultFileName1<-paste(outDir,"/",resultFileName1,sep="")        	 
-        scadaData$turbineID=rep(turbines[i], times=length(scadaData[,1]))  
-        write.csv(scadaData,file=resultFileName1,row.names = FALSE)
+        #         resultFileName1<-paste0(turbines[i],"(",
+        #                                 startDate,schemaCount,"_data.csv")
+        #         resultFileName1<-paste(outDir,"/",resultFileName1,sep="")        	   
+        #         write.csv(scadaData,file=resultFileName1,row.names = FALSE)
+        #         outFiles<-paste(outFiles,",",resultFileName1,sep="")
         
-        outFiles<-paste(outFiles,",",resultFileName,sep="")
+        
+        #         
+        #         startDate<-substr(bnames[i],9,nchar(bnames[i])-9)
         
         outFiles<-paste(outFiles,",",resultFileName1,sep="")
       }
@@ -269,26 +276,25 @@ WindFarmStatistics<-function(inputFilesDir,outDir){
   
   print(paste0("WindFarmStatistics:resDim:",dim(fieldDF)[1]))
   if(dim(fieldDF)[1]>0){
-    b<-strsplit(bnames[i], ".", fixed=TRUE)[[1]][1]
-    ed<-substr(b, nchar(b)-7, nchar(b))
-    resultFileName<-paste0(turbines[i],"_",
+    resultFileName<-paste0(turbines[i],"(",
                            startDate,"-",
-                           ed,".csv")
+                           substr(bnames[i],9,nchar(bnames[i])-9),").csv")
     resultFileName<-paste(outDir,"/",resultFileName,sep="")	
     fieldDF[dim(fieldDF)[1],]$endDate<-endDate
     write.csv(fieldDF,file=resultFileName)
     outFiles<-paste(outFiles,",",resultFileName,sep="")
   }
-
-#   if(dim(scadaData)[1]>0){
-#     resultFileName1<-paste0(turbines[i],"_",
-#                            startDate,"-",
-#                            substr(bnames[i],9,nchar(bnames[i])-9),")_data.csv")
-#     resultFileName1<-paste(outDir,"/",resultFileName1,sep="")  
-#     write.csv(scadaData,file=resultFileName1,row.names = FALSE)
-#     outFiles<-paste(outFiles,",",resultFileName1,sep="")
-#   }
-
+  
+  #xinlu
+  if(dim(scadaData)[1]>0){
+    resultFileName1<-paste0(turbines[i],"(",
+                            startDate,"-",
+                            substr(bnames[i],9,nchar(bnames[i])-9),")_data.csv")
+    resultFileName1<-paste(outDir,"/",resultFileName1,sep="")  
+    write.csv(scadaData,file=resultFileName1,row.names = FALSE)
+    outFiles<-paste(outFiles,",",resultFileName1,sep="")
+  }
+  
   outFiles<-substr(outFiles,2,nchar(outFiles))
   outFiles
 }
