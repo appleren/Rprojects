@@ -5,6 +5,8 @@ library(dplyr)
 library(tibble)
 library(stringr)
 
+
+
 datapath<-"../../data/gw/gaoshan"
 resultpath<-"../../data/gw/gaoshan/result"
 
@@ -82,8 +84,8 @@ write.csv(propaths_merged, paste0(resultpath, "propaths_withgroup.csv"), row.nam
 #=====================按照分组和协议处理实际schema====================
 tmp<-read.csv(paste0(resultpath, "/sortedResult.csv"))
 tmp$fid<-as.integer(substr(as.character(tmp$tid), 1, 6))
-wtinf_merged<-read.csv(paste0(resultpath, "wtinf_withgroup.csv"))
-propaths_merged<-read.csv(paste0(resultpath, "propaths_withgroup.csv"))
+wtinf_merged<-read.csv(paste0(resultpath, "/wtinf_withgroup.csv"))
+propaths_merged<-read.csv(paste0(resultpath, "/propaths_withgroup.csv"))
 
 # length(levels(as.factor(tmp$tid))) #6179
 # length(levels(as.factor(wtinf_merged$wtid))) #12613
@@ -98,8 +100,11 @@ splitCol<-function(col, splitor1=",", splitor2=" ") {
   name_types<-unlist(str_split(col, splitor1))
   test<-unlist(llply(name_types, str_split, " "))
   # test<-llply(name_types, str_split, " ")
-  
-  for(n in 1:length(test)%/%2){
-    
+  if(length(test)%%2==0) {
+    t<-length(test)-1
+  } else {
+    t<-length(test)
   }
+  names<-test[seq(from=1, to=t, by=2)]
+  types<-test[seq(from=2, to=(length(test)%/%2)*2, by=2)]
 }
